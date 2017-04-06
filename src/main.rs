@@ -24,12 +24,21 @@ use redis::Commands;
 struct Config {
     redis_url: String,
     jake_key: String,
+    ping_cmd: String,
+    ping_timeout: String,
     poll_period: u64,
     max_misses: u64,
     //global_string: Option<String>,
     //global_integer: Option<u64>,
     //server: Option<ServerConfig>,
     //peers: Option<Vec<PeerConfig>>,
+}
+
+impl Config {
+    fn ping_timeout_int(&self) -> u64 {
+        let tm: u64 = self.ping_timeout.parse().expect("must specify a ping timeout");
+        tm
+    }
 }
 
 impl fmt::Display for Config {
@@ -39,9 +48,9 @@ impl fmt::Display for Config {
     }
 }
 
-fn phone_ip_is_up(ip: String) -> bool {
-    let out = Command::new("/sbin/ping").arg("-c").arg("1")
-        .arg("-W").arg("2").arg(ip).output().expect("could not ping things.");
+fn phone_ip_is_up(ip: String, conf: &Config) -> bool {
+    let out = Command::new(conf.ping_cmd.as_str()).arg("-c").arg("1")
+        .arg("-W").arg(conf.ping_timeout.as_str()).arg(ip).output().expect("could not ping things.");
 
     if out.status.success() {
         true
@@ -63,7 +72,7 @@ fn process_missed_request(key: &String, conn: &redis::Connection, conf: &Config)
     } else {
         //println!("phone wasn't found, bumping missed from: {}", misses);
         let _ : () = conn.incr(&missed_key, 1usize).unwrap();
-        let expire = conf.poll_period + 2 + 1;
+        let expire = conf.poll_period + conf.ping_timeout_int() + 1;
         let _ : () = conn.expire(&missed_key, expire as usize).unwrap();
     }
 }
@@ -92,7 +101,7 @@ fn main() {
 
         match ip {
             Some(ip) => {
-                if !phone_ip_is_up(ip) {
+                if !phone_ip_is_up(ip, &decoded) {
                     process_missed_request(&decoded.jake_key, &con, &decoded)
                 } else {
                     //println!("phone found!")
