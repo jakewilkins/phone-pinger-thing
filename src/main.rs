@@ -24,6 +24,7 @@ use redis::Commands;
 struct Config {
     redis_url: String,
     jake_key: String,
+    becca_key: String,
     ping_cmd: String,
     ping_timeout: String,
     poll_period: u64,
@@ -77,7 +78,7 @@ fn process_missed_request(key: &String, conn: &redis::Connection, conf: &Config)
     }
 }
 
-fn main() {
+fn load_config() -> Config {
     let mut cfile = match env::var("CONF") {
         Ok(path) => File::open(path).unwrap(),
         Err(_) => panic!("Must supply a CONF")
@@ -88,27 +89,39 @@ fn main() {
     cfile.read_to_string(&mut file_str).unwrap();
 
     let decoded: Config = toml::from_str(file_str.as_str()).unwrap();
+    decoded
+}
 
-    let client = redis::Client::open(decoded.redis_url.as_str()).unwrap();
+fn do_check_for_key(key: &String, con: &redis::Connection, config: &Config) {
+    //let mut ip: Option<String>;
+    let ip = con.get(key).unwrap();
+
+    match ip {
+        Some(ip) => {
+            if !phone_ip_is_up(ip, config) {
+                process_missed_request(key, con, config)
+            } else {
+                //println!("phone found!")
+            }
+        }
+        None => ()
+    }
+}
+
+fn main() {
+    let config = load_config();
+
+    let client = redis::Client::open(config.redis_url.as_str()).unwrap();
     let con = client.get_connection().unwrap();
 
-    println!("jakes key is: {}", decoded.jake_key);
-    println!("poll period is: {}", decoded.poll_period);
-    let sleep_duration = Duration::new(decoded.poll_period, 0);
+    println!("jakes key is: {}", config.jake_key);
+    println!("poll period is: {}", config.poll_period);
+    let sleep_duration = Duration::new(config.poll_period, 0);
+
 
     loop {
-        let ip = con.get(&decoded.jake_key).unwrap();
-
-        match ip {
-            Some(ip) => {
-                if !phone_ip_is_up(ip, &decoded) {
-                    process_missed_request(&decoded.jake_key, &con, &decoded)
-                } else {
-                    //println!("phone found!")
-                }
-            }
-            None => ()
-        }
+        do_check_for_key(&config.jake_key, &con, &config);
+        do_check_for_key(&config.becca_key, &con, &config);
 
         thread::sleep(sleep_duration);
     }
