@@ -1,0 +1,10 @@
+[package]
+name = "watch-for-jake-being-home"
+version = "0.1.0"
+authors = ["Jake Wilkins <jake@jakewilkins.com>"]
+
+[dependencies]
+redis = "0.8.0"
+toml = "0.3.2"
+serde = "0.9"
+serde_derive = "0.9"
