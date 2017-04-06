@@ -1,8 +1,8 @@
 extern crate redis;
 #[macro_use]
 extern crate serde_derive;
-
 extern crate toml;
+extern crate chrono;
 
 use std::thread;
 use std::time::Duration;
@@ -12,6 +12,8 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::fmt;
 use std::process::Command;
+
+use chrono::Local;
 
 //use std::fmt::Formatter;
 use redis::Commands;
@@ -53,7 +55,9 @@ fn process_missed_request(key: &String, conn: &redis::Connection, conf: &Config)
     let missed_key = format!("{}_misses", key);
     let misses = conn.get(&missed_key).unwrap_or(0u64);
     if misses > conf.max_misses {
-        println!("max misses reached, cleaning up state because !{}", key);
+        let date = Local::now();
+        println!("{} max misses reached, cleaning up state because !{}", date.format("[%Y-%m-%d][%H:%M:%S]"), key);
+
         let _ : () = conn.del(&missed_key).unwrap();
         let _ : () = conn.del(key).unwrap();
     } else {
