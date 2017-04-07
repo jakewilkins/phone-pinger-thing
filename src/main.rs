@@ -73,7 +73,7 @@ fn process_missed_request(key: &String, conn: &redis::Connection, conf: &Config)
     } else {
         //println!("phone wasn't found, bumping missed from: {}", misses);
         let _ : () = conn.incr(&missed_key, 1usize).unwrap();
-        let expire = conf.poll_period + conf.ping_timeout_int() + 1;
+        let expire = ((conf.poll_period + conf.ping_timeout_int()) * 2) + 1;
         let _ : () = conn.expire(&missed_key, expire as usize).unwrap();
     }
 }
