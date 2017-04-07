@@ -101,7 +101,7 @@ fn do_check_for_key(key: &String, con: &redis::Connection, config: &Config) {
             if !phone_ip_is_up(ip, config) {
                 process_missed_request(key, con, config)
             } else {
-                //println!("phone found!")
+                let _ : () = con.expire(key, 3600).unwrap();
             }
         }
         None => ()
